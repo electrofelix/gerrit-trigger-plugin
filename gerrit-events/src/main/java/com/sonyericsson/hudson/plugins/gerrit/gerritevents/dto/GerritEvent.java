@@ -33,4 +33,10 @@ public interface GerritEvent {
      * @return the event type.
      */
     GerritEventType getEventType();
+
+    /**
+     * Returns if a score (code review or verify) can be submitted to Gerrit.
+     * @return true if so, otherwise false
+     */
+    boolean isScorable();
 }

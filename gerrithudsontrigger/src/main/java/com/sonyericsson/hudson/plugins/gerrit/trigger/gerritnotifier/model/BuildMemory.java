@@ -24,7 +24,7 @@
  */
 package com.sonyericsson.hudson.plugins.gerrit.trigger.gerritnotifier.model;
 
-import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.events.PatchsetCreated;
+import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.events.GerritTriggeredEvent;
 import com.sonyericsson.hudson.plugins.gerrit.trigger.gerritnotifier.model.BuildMemory.MemoryImprint.Entry;
 import com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.GerritCause;
 import com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.data.TriggerContext;
@@ -71,7 +71,7 @@ public class BuildMemory {
      * @param event the event.
      * @return true if it is so.
      */
-    public synchronized boolean isAllBuildsCompleted(PatchsetCreated event) {
+    public synchronized boolean isAllBuildsCompleted(GerritTriggeredEvent event) {
         PatchSetKey key = createKey(event);
         return isAllBuildsCompleted(key);
     }
@@ -131,7 +131,7 @@ public class BuildMemory {
      * @param event the event.
      * @return true if it is so.
      */
-    public synchronized boolean isAllBuildsStarted(PatchsetCreated event) {
+    public synchronized boolean isAllBuildsStarted(GerritTriggeredEvent event) {
         PatchSetKey key = createKey(event);
         return isAllBuildsStarted(key);
     }
@@ -158,7 +158,7 @@ public class BuildMemory {
      * @param build the build.
      * @return the key to the memory.
      */
-    public synchronized PatchSetKey completed(PatchsetCreated event, AbstractBuild build) {
+    public synchronized PatchSetKey completed(GerritTriggeredEvent event, AbstractBuild build) {
         PatchSetKey key = createKey(event);
         MemoryImprint pb = memory.get(key);
         if (pb == null) {
@@ -177,7 +177,7 @@ public class BuildMemory {
      * @param build the build.
      * @return the key to the memory.
      */
-    public synchronized PatchSetKey started(PatchsetCreated event, AbstractBuild build) {
+    public synchronized PatchSetKey started(GerritTriggeredEvent event, AbstractBuild build) {
         PatchSetKey key = createKey(event);
         MemoryImprint pb = memory.get(key);
         if (pb == null) {
@@ -197,7 +197,7 @@ public class BuildMemory {
      * @param project the project that was triggered.
      * @return the key to the memory.
      */
-    public synchronized PatchSetKey triggered(PatchsetCreated event, AbstractProject project) {
+    public synchronized PatchSetKey triggered(GerritTriggeredEvent event, AbstractProject project) {
         PatchSetKey key = createKey(event);
         MemoryImprint pb = memory.get(key);
         if (pb == null) {
@@ -219,7 +219,7 @@ public class BuildMemory {
      * @return the key to the memory.
      */
     public synchronized PatchSetKey retriggered(
-            PatchsetCreated event,
+            GerritTriggeredEvent event,
             AbstractProject project,
             List<AbstractBuild> otherBuilds) {
         PatchSetKey key = createKey(event);
@@ -245,7 +245,7 @@ public class BuildMemory {
      * @param event the event.
      * @return the key.
      */
-    private PatchSetKey createKey(PatchsetCreated event) {
+    private PatchSetKey createKey(GerritTriggeredEvent event) {
         return new PatchSetKey(event.getChange().getNumber(), event.getPatchSet().getNumber());
     }
 
@@ -324,7 +324,7 @@ public class BuildMemory {
      * @param project the project.
      * @return true if so.
      */
-    public synchronized boolean isBuilding(PatchsetCreated event, AbstractProject project) {
+    public synchronized boolean isBuilding(GerritTriggeredEvent event, AbstractProject project) {
         PatchSetKey key = createKey(event);
         MemoryImprint pb = memory.get(key);
         if (pb == null) {
@@ -349,7 +349,7 @@ public class BuildMemory {
      * @param event the event to look for.
      * @return true if so.
      */
-    public synchronized boolean isBuilding(PatchsetCreated event) {
+    public synchronized boolean isBuilding(GerritTriggeredEvent event) {
         PatchSetKey key = createKey(event);
         MemoryImprint pb = memory.get(key);
         return pb != null;
@@ -401,7 +401,7 @@ public class BuildMemory {
      */
     public static class MemoryImprint {
 
-        private PatchsetCreated event;
+        private GerritTriggeredEvent event;
         private List<Entry> list = new ArrayList<Entry>();
 
         /**
@@ -409,7 +409,7 @@ public class BuildMemory {
          *
          * @param event the event.
          */
-        public MemoryImprint(PatchsetCreated event) {
+        public MemoryImprint(GerritTriggeredEvent event) {
             this.event = event;
         }
 
@@ -419,7 +419,7 @@ public class BuildMemory {
          * @param event   the event.
          * @param project the first project.
          */
-        public MemoryImprint(PatchsetCreated event, AbstractProject project) {
+        public MemoryImprint(GerritTriggeredEvent event, AbstractProject project) {
             this.event = event;
             set(project);
         }
@@ -429,7 +429,7 @@ public class BuildMemory {
          *
          * @return the event.
          */
-        public PatchsetCreated getEvent() {
+        public GerritTriggeredEvent getEvent() {
             return event;
         }
 
@@ -783,7 +783,7 @@ public class BuildMemory {
          * @param event the event to get change and revision from.
          * @see #PatchSetKey(java.lang.String, java.lang.String)
          */
-        PatchSetKey(PatchsetCreated event) {
+        PatchSetKey(GerritTriggeredEvent event) {
             this(event.getChange().getNumber(), event.getPatchSet().getNumber());
         }
 

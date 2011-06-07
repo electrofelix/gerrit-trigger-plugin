@@ -30,7 +30,7 @@ import com.sonyericsson.hudson.plugins.gerrit.trigger.gerritnotifier.model.Build
 import com.sonyericsson.hudson.plugins.gerrit.trigger.gerritnotifier.model.BuildsStartedStats;
 import com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.GerritTrigger;
 import com.sonyericsson.hudson.plugins.gerrit.trigger.utils.StringUtil;
-import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.events.PatchsetCreated;
+import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.events.GerritTriggeredEvent;
 
 import hudson.model.AbstractBuild;
 import hudson.model.Hudson;
@@ -90,7 +90,7 @@ public class ParameterExpander {
      * @return the "expanded" command string.
      */
     public String getBuildStartedCommand(AbstractBuild r, TaskListener taskListener,
-            PatchsetCreated event, BuildsStartedStats stats) {
+            GerritTriggeredEvent event, BuildsStartedStats stats) {
 
         GerritTrigger trigger = GerritTrigger.getTrigger(r.getProject());
         String gerritCmd = config.getGerritCmdBuildStarted();
@@ -178,7 +178,7 @@ public class ParameterExpander {
      * @param verified the verified vote.
      * @return the parameters and their values.
      */
-    private Map<String, String> createStandardParameters(AbstractBuild r, PatchsetCreated event,
+    private Map<String, String> createStandardParameters(AbstractBuild r, GerritTriggeredEvent event,
             int codeReview, int verified) {
         //<GERRIT_NAME> <BRANCH> <CHANGE> <PATCHSET> <REFSPEC> <BUILDURL> VERIFIED CODE_REVIEW
         Map<String, String> map = new HashMap<String, String>(DEFAULT_PARAMETERS_COUNT);
