@@ -33,6 +33,7 @@ import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.events.ChangeMerg
 import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.events.GerritTriggeredEvent;
 import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.events.ManualPatchsetCreated;
 import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.events.PatchsetCreated;
+import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.events.CommentAdded;
 import com.sonyericsson.hudson.plugins.gerrit.trigger.Messages;
 import com.sonyericsson.hudson.plugins.gerrit.trigger.PluginImpl;
 import com.sonyericsson.hudson.plugins.gerrit.trigger.gerritnotifier.ToGerritRunListener;
@@ -95,6 +96,9 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
     private boolean escapeQuotes;
     private boolean triggerOnPatchsetUploadedEvent;
     private boolean triggerOnChangeMergedEvent;
+    private boolean triggerOnCommentAddedEvent;
+    private String commentAddedTriggerApprovalCategory;
+    private String commentAddedTriggerApprovalValue;
     private String buildStartMessage;
     private String buildFailureMessage;
     private String buildSuccessfulMessage;
@@ -133,6 +137,9 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
      * @param escapeQuotes                   EscapeQuotes on or off.
      * @param triggerOnPatchsetUploadedEvent Trigger event on patchset uploaded on or off.
      * @param triggerOnChangeMergedEvent     Trigger event on change merged on or off.
+     * @param triggerOnCommentAddedEvent     Trigger event on comment added on or off.
+     * @param commentAddedTriggerApprovalCategory     Approval category for comment added trigger.
+     * @param commentAddedTriggerApprovalValue        Approval value for comment added trigger.
      * @param buildStartMessage              Message to write to Gerrit when a build begins
      * @param buildSuccessfulMessage         Message to write to Gerrit when a build succeeds
      * @param buildUnstableMessage           Message to write to Gerrit when a build is unstable
@@ -156,6 +163,9 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
             boolean escapeQuotes,
             boolean triggerOnPatchsetUploadedEvent,
             boolean triggerOnChangeMergedEvent,
+            boolean triggerOnCommentAddedEvent,
+            String commentAddedTriggerApprovalCategory,
+            String commentAddedTriggerApprovalValue,
             String buildStartMessage,
             String buildSuccessfulMessage,
             String buildUnstableMessage,
@@ -175,6 +185,9 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
         this.escapeQuotes = escapeQuotes;
         this.triggerOnPatchsetUploadedEvent = triggerOnPatchsetUploadedEvent;
         this.triggerOnChangeMergedEvent = triggerOnChangeMergedEvent;
+        this.triggerOnCommentAddedEvent = triggerOnCommentAddedEvent;
+        this.commentAddedTriggerApprovalCategory = commentAddedTriggerApprovalCategory;
+        this.commentAddedTriggerApprovalValue = commentAddedTriggerApprovalValue;
         this.buildStartMessage = buildStartMessage;
         this.buildSuccessfulMessage = buildSuccessfulMessage;
         this.buildUnstableMessage = buildUnstableMessage;
@@ -499,6 +512,31 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
     }
 
     /**
+     * Called when a CommentAdded event arrives.
+     *
+     * @param event the event.
+     */
+    @Override
+    public void gerritEvent(CommentAdded event) {
+        logger.trace("event: {}", event);
+        if (!myProject.isBuildable()) {
+            logger.trace("Disabled.");
+            return;
+        }
+        if (triggerOnCommentAddedEvent
+                && event.matchesApproval(this.commentAddedTriggerApprovalCategory,
+                                         this.commentAddedTriggerApprovalValue)
+                && isInteresting(event)) {
+            logger.trace("The event is interesting.");
+            if (!silentMode) {
+                ToGerritRunListener.getInstance().onTriggered(myProject, event);
+            }
+            GerritCause cause = new GerritCause(event, silentMode);
+            schedule(cause, event);
+        }
+    }
+
+    /**
      * The list of GerritProject triggering rules.
      *
      * @return the rule-set.
@@ -707,6 +745,54 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
     }
 
     /**
+     * Trigger on patchset-uploaded events
+     * Default is true.
+     *
+     * @return true if trigger on patchset-uploaded events.
+     */
+    public boolean isTriggerOnPatchsetUploadedEvent() {
+        return triggerOnPatchsetUploadedEvent;
+    }
+
+    /**
+     * Trigger on change-merged events
+     * Default is false.
+     *
+     * @return true if trigger on change-merged events.
+     */
+
+    public boolean isTriggerOnChangeMergedEvent() {
+        return triggerOnChangeMergedEvent;
+    }
+    /**
+     * Trigger on comment-added events
+     * Default is false.
+     *
+     * @return true if trigger on comment-added events.
+     */
+    public boolean isTriggerOnCommentAddedEvent() {
+        return triggerOnCommentAddedEvent;
+    }
+
+    /**
+     * The approval category for the comment added trigger.
+     *
+     * @return The approval category for the comment added trigger.
+     */
+    public String getCommentAddedTriggerApprovalCategory() {
+        return commentAddedTriggerApprovalCategory;
+    }
+
+    /**
+     * The approval value for the comment added trigger.
+     *
+     * @return The approval value for the comment added trigger.
+     */
+    public String getCommentAddedTriggerApprovalValue() {
+        return commentAddedTriggerApprovalValue;
+    }
+
+    /**
      * Sets escapeQuotes to on or off. When escapeQuotes is on plugin will escape quotes in Gerrit event parameter
      * string. Default is false.
      *
@@ -787,6 +873,36 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
      */
     public void setCustomUrl(String customUrl) {
         this.customUrl = customUrl;
+    }
+
+    /**
+     * Sets triggering on patchset-uploaded events.
+     * Default is true.
+     *
+     * @param triggerOnPatchsetUploadedEvent true if should trigger on patchset-uploaded.
+     */
+    public void setTriggerOnPatchsetUploadedEvent(boolean triggerOnPatchsetUploadedEvent) {
+        this.triggerOnPatchsetUploadedEvent = triggerOnPatchsetUploadedEvent;
+    }
+
+    /**
+     * Sets triggering on change-merged events.
+     * Default is false.
+     *
+     * @param triggerOnChangeMergedEvent true if should trigger on change-merged.
+     */
+    public void setTriggerOnChangeMergedEvent(boolean triggerOnChangeMergedEvent) {
+        this.triggerOnChangeMergedEvent = triggerOnChangeMergedEvent;
+    }
+
+    /**
+     * Sets triggering on comment-added events.
+     * Default is false.
+     *
+     * @param triggerOnCommentAddedEvent true if should trigger on comment-added.
+     */
+    public void setTriggerOnCommentAddedEvent(boolean triggerOnCommentAddedEvent) {
+        this.triggerOnCommentAddedEvent = triggerOnCommentAddedEvent;
     }
 
     /**
