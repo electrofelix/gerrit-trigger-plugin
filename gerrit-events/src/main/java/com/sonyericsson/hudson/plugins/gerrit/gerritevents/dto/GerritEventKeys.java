@@ -98,7 +98,7 @@ public abstract class GerritEventKeys {
      */
     public static final String SUBMITTER = "submitter";
     /**
-     * submitter.
+     * author.
      */
     public static final String AUTHOR = "author";
     /**
@@ -113,6 +113,22 @@ public abstract class GerritEventKeys {
      * approval value.
      */
     public static final String VALUE = "value";
+    /**
+     * refupdate.
+     */
+    public static final String REFUPDATE = "refUpdate";
+    /**
+     * refname.
+     */
+    public static final String REFNAME = "refName";
+    /**
+     * oldrev.
+     */
+    public static final String OLDREV = "oldRev";
+    /**
+     * newrev.
+     */
+    public static final String NEWREV = "newRev";
 
     /**
      * Empty default constructor to hinder instantiation.

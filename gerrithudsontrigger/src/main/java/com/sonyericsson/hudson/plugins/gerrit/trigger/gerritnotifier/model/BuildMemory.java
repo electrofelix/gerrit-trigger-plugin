@@ -704,7 +704,6 @@ public class BuildMemory {
             private void setBuildCompleted(boolean buildCompleted) {
                 this.buildCompleted = buildCompleted;
             }
-
         }
     }
 }

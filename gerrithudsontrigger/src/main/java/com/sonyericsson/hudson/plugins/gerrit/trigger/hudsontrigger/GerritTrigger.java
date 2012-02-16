@@ -35,6 +35,7 @@ import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.events.GerritTrig
 import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.events.ManualPatchsetCreated;
 import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.events.PatchsetCreated;
 import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.events.CommentAdded;
+import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.events.RefUpdated;
 import com.sonyericsson.hudson.plugins.gerrit.trigger.Messages;
 import com.sonyericsson.hudson.plugins.gerrit.trigger.PluginImpl;
 import com.sonyericsson.hudson.plugins.gerrit.trigger.gerritnotifier.ToGerritRunListener;
@@ -98,6 +99,7 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
     private boolean triggerOnPatchsetUploadedEvent;
     private boolean triggerOnChangeMergedEvent;
     private boolean triggerOnCommentAddedEvent;
+    private boolean triggerOnRefUpdatedEvent;
     private String commentAddedTriggerApprovalCategory;
     private String commentAddedTriggerApprovalValue;
     private String buildStartMessage;
@@ -139,6 +141,7 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
      * @param triggerOnPatchsetUploadedEvent Trigger event on patchset uploaded on or off.
      * @param triggerOnChangeMergedEvent     Trigger event on change merged on or off.
      * @param triggerOnCommentAddedEvent     Trigger event on comment added on or off.
+     * @param triggerOnRefUpdatedEvent       Trigger event on ref updated on or off.
      * @param commentAddedTriggerApprovalCategory     Approval category for comment added trigger.
      * @param commentAddedTriggerApprovalValue        Approval value for comment added trigger.
      * @param buildStartMessage              Message to write to Gerrit when a build begins
@@ -165,6 +168,7 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
             boolean triggerOnPatchsetUploadedEvent,
             boolean triggerOnChangeMergedEvent,
             boolean triggerOnCommentAddedEvent,
+            boolean triggerOnRefUpdatedEvent,
             String commentAddedTriggerApprovalCategory,
             String commentAddedTriggerApprovalValue,
             String buildStartMessage,
@@ -187,6 +191,7 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
         this.triggerOnPatchsetUploadedEvent = triggerOnPatchsetUploadedEvent;
         this.triggerOnChangeMergedEvent = triggerOnChangeMergedEvent;
         this.triggerOnCommentAddedEvent = triggerOnCommentAddedEvent;
+        this.triggerOnRefUpdatedEvent = triggerOnRefUpdatedEvent;
         this.commentAddedTriggerApprovalCategory = commentAddedTriggerApprovalCategory;
         this.commentAddedTriggerApprovalValue = commentAddedTriggerApprovalValue;
         this.buildStartMessage = buildStartMessage;
@@ -291,6 +296,10 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
      * @param project the project to build.
      */
     protected void schedule(GerritCause cause, GerritTriggeredEvent event, AbstractProject project) {
+        BadgeAction badgeAction = null;
+        if (event.getChange() != null) {
+            badgeAction = new BadgeAction(event);
+        }
         //during low traffic we still don't want to spam Gerrit, 3 is a nice number, isn't it?
         int projectbuildDelay = getBuildScheduleDelay();
         if (cause instanceof GerritUserCause) {
@@ -303,18 +312,23 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
         Future build = project.scheduleBuild2(
                 projectbuildDelay,
                 cause,
-                new BadgeAction(event),
+                badgeAction,
                 new RetriggerAction(cause.getContext()),
                 new RetriggerAllAction(cause.getContext()),
                 createParameters(event, project));
         //Experimental feature!
-        if (PluginImpl.getInstance().getConfig().isGerritBuildCurrentPatchesOnly()) {
+        if (event.getChange() != null && PluginImpl.getInstance().getConfig().isGerritBuildCurrentPatchesOnly()) {
             getRunningJobs().scheduled(event.getChange(), build, project.getName());
         }
-
-        logger.info("Project {} Build Scheduled: {} By event: {}",
-                new Object[]{project.getName(), (build != null),
-                        event.getChange().getNumber() + "/" + event.getPatchSet().getNumber(), });
+        if (event.getChange() != null) {
+            logger.info("Project {} Build Scheduled: {} By event: {}",
+                    new Object[]{project.getName(), (build != null),
+                            event.getChange().getNumber() + "/" + event.getPatchSet().getNumber(), });
+        } else if (event.getRefUpdate() != null) {
+            logger.info("Project {} Build Scheduled: {} By event: {}",
+                    new Object[]{project.getName(), (build != null),
+                            event.getRefUpdate().getRefName() + " " + event.getRefUpdate().getNewRev(), });
+        }
     }
 
     /**
@@ -337,7 +351,7 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
      */
     public void notifyBuildEnded(GerritTriggeredEvent event) {
         //Experimental feature!
-        if (PluginImpl.getInstance().getConfig().isGerritBuildCurrentPatchesOnly()) {
+        if (event.getChange() != null && PluginImpl.getInstance().getConfig().isGerritBuildCurrentPatchesOnly()) {
             getRunningJobs().remove(event.getChange());
         }
     }
@@ -543,6 +557,28 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
         }
         if (triggerOnCommentAddedEvent && isInteresting(event)
                 && matchesApproval(event)) {
+            logger.trace("The event is interesting.");
+            if (!silentMode) {
+                ToGerritRunListener.getInstance().onTriggered(myProject, event);
+            }
+            GerritCause cause = new GerritCause(event, silentMode);
+            schedule(cause, event);
+        }
+    }
+
+    /**
+     * Called when a RefUpdated event arrives.
+     *
+     * @param event the event.
+     */
+    @Override
+    public void gerritEvent(RefUpdated event) {
+        logger.trace("event: {}", event);
+        if (!myProject.isBuildable()) {
+            logger.trace("Disabled.");
+            return;
+        }
+        if (triggerOnRefUpdatedEvent && isInteresting(event)) {
             logger.trace("The event is interesting.");
             if (!silentMode) {
                 ToGerritRunListener.getInstance().onTriggered(myProject, event);
@@ -780,6 +816,7 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
     public boolean isTriggerOnChangeMergedEvent() {
         return triggerOnChangeMergedEvent;
     }
+
     /**
      * Trigger on comment-added events
      * Default is false.
@@ -788,6 +825,16 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
      */
     public boolean isTriggerOnCommentAddedEvent() {
         return triggerOnCommentAddedEvent;
+    }
+
+    /**
+     * Trigger on ref-updated events
+     * Default is false.
+     *
+     * @return true if trigger on ref-updated events.
+     */
+    public boolean isTriggerOnRefUpdatedEvent() {
+        return triggerOnRefUpdatedEvent;
     }
 
     /**
@@ -922,6 +969,16 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
     }
 
     /**
+     * Sets triggering on ref-updated events.
+     * Default is false.
+     *
+     * @param triggerOnRefUpdatedEvent true if should trigger on ref-updated.
+     */
+    public void setTriggerOnRefUpdatedEvent(boolean triggerOnRefUpdatedEvent) {
+        this.triggerOnRefUpdatedEvent = triggerOnRefUpdatedEvent;
+    }
+
+    /**
      * Should we trigger on this event?
      *
      * @param event the event
@@ -930,17 +987,33 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
     private boolean isInteresting(GerritTriggeredEvent event) {
         if (gerritProjects != null) {
             logger.trace("entering isInteresting projects configured: {} the event: {}", gerritProjects.size(), event);
+            String ref = null;
             for (GerritProject p : gerritProjects) {
-                if (p.isInteresting(event.getChange().getProject(), event.getChange().getBranch())) {
-                    if (isFileTriggerEnabled() && p.getFilePaths() != null && p.getFilePaths().size() > 0) {
-                        if (p.isInteresting(event.getChange().getProject(), event.getChange().getBranch(),
-                        event.getFiles(new GerritQueryHandler(PluginImpl.getInstance().getConfig())))) {
+                if (event.getChange() != null) {
+                    if (p.isInteresting(event.getChange().getProject(), event.getChange().getBranch())) {
+                        if (isFileTriggerEnabled() && p.getFilePaths() != null && p.getFilePaths().size() > 0) {
+                            if (p.isInteresting(event.getChange().getProject(), event.getChange().getBranch(),
+                                    event.getFiles(new GerritQueryHandler(PluginImpl.getInstance().getConfig())))) {
+                                logger.trace("According to {} the event is interesting.", p);
+                                return true;
+                            }
+                        } else {
                             logger.trace("According to {} the event is interesting.", p);
                             return true;
                         }
-                    } else {
-                        logger.trace("According to {} the event is interesting.", p);
-                        return true;
+                    }
+                } else if (event.getRefUpdate() != null) {
+                    if (p.isInteresting(event.getRefUpdate().getProject(), event.getRefUpdate().getRefName())) {
+                        if (isFileTriggerEnabled() && p.getFilePaths() != null && p.getFilePaths().size() > 0) {
+                            if (p.isInteresting(event.getRefUpdate().getProject(), event.getRefUpdate().getRefName(),
+                                    event.getFiles(new GerritQueryHandler(PluginImpl.getInstance().getConfig())))) {
+                                logger.trace("According to {} the event is interesting.", p);
+                                return true;
+                            }
+                        } else {
+                            logger.trace("According to {} the event is interesting.", p);
+                            return true;
+                        }
                     }
                 }
             }

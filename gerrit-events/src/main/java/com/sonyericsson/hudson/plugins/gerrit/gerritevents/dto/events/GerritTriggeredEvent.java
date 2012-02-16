@@ -24,8 +24,10 @@
 package com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.events;
 
 import static com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.GerritEventKeys.CHANGE;
+import static com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.GerritEventKeys.REFUPDATE;
 import static com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.GerritEventKeys.PATCHSET;
 import static com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.GerritEventKeys.PATCH_SET;
+
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
@@ -34,6 +36,7 @@ import com.sonyericsson.hudson.plugins.gerrit.gerritevents.GerritQueryHandler;
 import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.attr.Account;
 import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.attr.Change;
 import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.attr.PatchSet;
+import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.attr.RefUpdate;
 import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.events.lifecycle.GerritEventLifecycle;
 
 import org.slf4j.Logger;
@@ -57,6 +60,11 @@ public class GerritTriggeredEvent extends GerritEventLifecycle {
     protected Change change;
 
     /**
+     * The Gerrit ref update the event is related to.
+     */
+    protected RefUpdate refUpdate;
+
+    /**
      * Refers to a specific patchset within a change.
      */
     protected PatchSet patchSet;
@@ -78,6 +86,9 @@ public class GerritTriggeredEvent extends GerritEventLifecycle {
     public void fromJson(JSONObject json) {
         if (json.containsKey(CHANGE)) {
             change = new Change(json.getJSONObject(CHANGE));
+        }
+        if (json.containsKey(REFUPDATE)) {
+            refUpdate = new RefUpdate(json.getJSONObject(REFUPDATE));
         }
         if (json.containsKey(PATCH_SET)) {
             patchSet = new PatchSet(json.getJSONObject(PATCH_SET));
@@ -116,6 +127,22 @@ public class GerritTriggeredEvent extends GerritEventLifecycle {
      */
     public void setChange(Change change) {
         this.change = change;
+    }
+
+    /**
+     * The ref update.
+     * @return the refupdate.
+     */
+    public RefUpdate getRefUpdate() {
+        return refUpdate;
+    }
+
+    /**
+     * The ref update.
+     * @param refUpdate the refupdate.
+     */
+    public void setRefUpdate(RefUpdate refUpdate) {
+        this.refUpdate = refUpdate;
     }
 
     /**
