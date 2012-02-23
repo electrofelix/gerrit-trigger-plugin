@@ -26,7 +26,6 @@ package com.sonyericsson.hudson.plugins.gerrit.trigger.gerritnotifier;
 
 import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.events.GerritTriggeredEvent;
 import com.sonyericsson.hudson.plugins.gerrit.trigger.gerritnotifier.model.BuildMemory;
-import com.sonyericsson.hudson.plugins.gerrit.trigger.gerritnotifier.model.BuildMemory.PatchSetKey;
 import com.sonyericsson.hudson.plugins.gerrit.trigger.gerritnotifier.model.BuildsStartedStats;
 import com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.GerritCause;
 import com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.GerritTrigger;
@@ -97,14 +96,14 @@ public class ToGerritRunListener extends RunListener<AbstractBuild> {
             }
             event.fireBuildCompleted(r);
             if (!cause.isSilentMode()) {
-                PatchSetKey key = memory.completed(event, r);
+                memory.completed(event, r);
 
                 if (r.getResult().isWorseThan(Result.SUCCESS)) {
                     try {
                         // Attempt to record the failure message, if applicable
                         String failureMessage = this.obtainFailureMessage(event, r, listener);
                         logger.info("Obtained failure message: {}", failureMessage);
-                        memory.setEntryFailureMessage(key, r, failureMessage);
+                        memory.setEntryFailureMessage(cause.getEvent(), r, failureMessage);
                     } catch (IOException e) {
                         listener.error("[gerrit-trigger] Unable to read failure message from the workspace.");
                         logger.warn("IOException while obtaining failure message for build: "
@@ -116,18 +115,18 @@ public class ToGerritRunListener extends RunListener<AbstractBuild> {
                     }
                 }
 
-                updateTriggerContexts(r, key);
-                if (memory.isAllBuildsCompleted(key)) {
+                updateTriggerContexts(r);
+                if (memory.isAllBuildsCompleted(cause.getEvent())) {
                     try {
                         logger.info("All Builds are completed for cause: {}", cause);
                         event.fireAllBuildsCompleted();
-                        NotificationFactory.getInstance().queueBuildCompleted(memory.getMemoryImprint(key), listener);
+                        NotificationFactory.getInstance().queueBuildCompleted(memory.getMemoryImprint(event), listener);
                     } finally {
-                        memory.forget(key);
+                        memory.forget(cause.getEvent());
                     }
                 } else {
                     logger.info("Waiting for more builds to complete for cause [{}]. Status: \n{}",
-                            cause, memory.getStatusReport(key));
+                            cause, memory.getStatusReport(event));
                 }
             }
         }
@@ -140,20 +139,17 @@ public class ToGerritRunListener extends RunListener<AbstractBuild> {
         if (cause != null) {
             cleanUpGerritCauses(cause, r);
             setThisBuild(r);
-            PatchSetKey key = null;
             if (cause.getEvent() != null) {
                 cause.getEvent().fireBuildStarted(r);
             }
             if (!cause.isSilentMode()) {
-                key = memory.started(cause.getEvent(), r);
-                updateTriggerContexts(r, key);
-                BuildsStartedStats stats = memory.getBuildsStartedStats(key);
+                memory.started(cause.getEvent(), r);
+                updateTriggerContexts(r);
+                BuildsStartedStats stats = memory.getBuildsStartedStats(cause.getEvent());
                 NotificationFactory.getInstance().queueBuildStarted(r, listener, cause.getEvent(), stats);
             }
             logger.info("Gerrit build [{}] Started for cause: [{}].", r, cause);
-            if (key != null) {
-                logger.info("MemoryStatus:\n{}", memory.getStatusReport(key));
-            }
+            logger.info("MemoryStatus:\n{}", memory.getStatusReport(cause.getEvent()));
         }
     }
 
@@ -162,16 +158,15 @@ public class ToGerritRunListener extends RunListener<AbstractBuild> {
      * {@link GerritCause}s in the build.
      *
      * @param r   the build.
-     * @param key the memory key to update.
      * @see BuildMemory#updateTriggerContext(
      *      com.sonyericsson.hudson.plugins.gerrit.trigger.gerritnotifier.model.BuildMemory.PatchSetKey,
      *      com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.GerritCause, hudson.model.AbstractBuild)
      */
-    protected void updateTriggerContexts(AbstractBuild r, PatchSetKey key) {
+    protected void updateTriggerContexts(AbstractBuild r) {
         List<Cause> causes = r.getCauses();
         for (Cause cause : causes) {
             if (cause instanceof GerritCause) {
-                memory.updateTriggerContext(key, (GerritCause)cause, r);
+                memory.updateTriggerContext((GerritCause)cause, r);
             }
         }
     }

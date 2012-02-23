@@ -36,7 +36,6 @@ import hudson.model.AbstractProject;
 import hudson.model.Hudson;
 import hudson.model.Result;
 import hudson.model.TaskListener;
-import junit.framework.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.powermock.api.mockito.PowerMockito;
@@ -90,7 +89,7 @@ public class SpecGerritVerifiedSetterTest {
         PatchsetCreated event = Setup.createPatchsetCreated();
 
         BuildMemory memory = new BuildMemory();
-        BuildMemory.PatchSetKey key = memory.completed(event, build);
+        memory.completed(event, build);
 
         IGerritHudsonTriggerConfig config = mock(IGerritHudsonTriggerConfig.class);
 
@@ -100,7 +99,7 @@ public class SpecGerritVerifiedSetterTest {
         when(config.getGerritBuildSuccessfulCodeReviewValue()).thenReturn(1);
 
         GerritNotifier notifier = new GerritNotifier(config, mockGerritCmdRunner, hudson);
-        notifier.buildCompleted(memory.getMemoryImprint(key), taskListener);
+        notifier.buildCompleted(memory.getMemoryImprint(event), taskListener);
         String parameterStringExpected = "gerrit approve MSG=OK VERIFIED=1 CODEREVIEW=1";
 
         verify(mockGerritCmdRunner).sendCommand(parameterStringExpected);
@@ -138,7 +137,7 @@ public class SpecGerritVerifiedSetterTest {
         PatchsetCreated event = Setup.createPatchsetCreated();
 
         BuildMemory memory = new BuildMemory();
-        BuildMemory.PatchSetKey key = memory.completed(event, build);
+        memory.completed(event, build);
 
         IGerritHudsonTriggerConfig config = mock(IGerritHudsonTriggerConfig.class);
 
@@ -148,7 +147,7 @@ public class SpecGerritVerifiedSetterTest {
         when(config.getGerritBuildFailedCodeReviewValue()).thenReturn(-1);
 
         GerritNotifier notifier = new GerritNotifier(config, mockGerritCmdRunner, hudson);
-        notifier.buildCompleted(memory.getMemoryImprint(key), taskListener);
+        notifier.buildCompleted(memory.getMemoryImprint(event), taskListener);
         String parameterStringExpected = "gerrit approve MSG=Failed VERIFIED=-1 CODEREVIEW=-1";
 
         verify(mockGerritCmdRunner).sendCommand(parameterStringExpected);
@@ -185,7 +184,7 @@ public class SpecGerritVerifiedSetterTest {
         PatchsetCreated event = Setup.createPatchsetCreated();
 
         BuildMemory memory = new BuildMemory();
-        BuildMemory.PatchSetKey key = memory.completed(event, build);
+        memory.completed(event, build);
 
         build = mock(AbstractBuild.class);
         when(build.getResult()).thenReturn(Result.FAILURE);
@@ -199,9 +198,7 @@ public class SpecGerritVerifiedSetterTest {
         when(trigger.getGerritBuildFailedVerifiedValue()).thenReturn(null);
         when(project.getTrigger(GerritTrigger.class)).thenReturn(trigger);
 
-        BuildMemory.PatchSetKey key2 = memory.completed(event, build);
-
-        Assert.assertEquals(key, key2);
+        memory.completed(event, build);
 
         IGerritHudsonTriggerConfig config = mock(IGerritHudsonTriggerConfig.class);
 
@@ -213,7 +210,7 @@ public class SpecGerritVerifiedSetterTest {
         when(config.getGerritBuildFailedVerifiedValue()).thenReturn(-1);
 
         GerritNotifier notifier = new GerritNotifier(config, mockGerritCmdRunner, hudson);
-        notifier.buildCompleted(memory.getMemoryImprint(key), taskListener);
+        notifier.buildCompleted(memory.getMemoryImprint(event), taskListener);
         String parameterStringExpected = "gerrit approve MSG=FAILED VERIFIED=-1 CODEREVIEW=-1";
 
         verify(mockGerritCmdRunner).sendCommand(parameterStringExpected);
